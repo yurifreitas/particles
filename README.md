@@ -64,6 +64,7 @@ Este projeto realiza uma análise avançada de dados reais de colisões do exper
 
 ```bash
 pip install -r requirements.txt
+```
 
 ## 🔗 Referências
 
