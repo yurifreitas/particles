@@ -1,0 +1,2 @@
+📂 Diretório extra-assets - Experimentações com Dados Simulados
+O diretório extra-assets/ contém diversas experimentações preliminares, realizadas utilizando dados simulados do CERN. Esses experimentos foram conduzidos para validar abordagens analíticas antes da aplicação em dados reais de colisões do experimento ATLAS.
