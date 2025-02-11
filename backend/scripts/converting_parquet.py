@@ -10,6 +10,7 @@ import numpy as np
 INPUT_DIR = "/app/data/cern_raw"
 OUTPUT_DIR = "/app/data/parquet"
 CHECKPOINT_FILE = "/app/logs/parquet_checkpoint.json"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 def is_valid_root_file(filepath):
     """Verifica se o arquivo ROOT é válido."""

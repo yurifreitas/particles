@@ -1,11 +1,8 @@
-from pyspark.sql import SparkSession
 import os
 import subprocess
 import json
-
-# Criar sessão Spark
-spark = SparkSession.builder.appName("CERNDownloader").getOrCreate()
-sc = spark.sparkContext
+import tempfile
+import shutil
 
 INPUT_DIR = "/app/data/cern_raw"
 os.makedirs(INPUT_DIR, exist_ok=True)
@@ -30,53 +27,32 @@ urls = [
 ]
 
 def download_file(url):
-    filename = os.path.join(INPUT_DIR, url.split("/")[-1])
-    if os.path.exists(filename):
-        print(f"Arquivo já existe: {filename} (Pulando)")
-        return True
+    filename = url.split("/")[-1]
+    final_filepath = os.path.join(INPUT_DIR, filename)
 
-    command = ["xrdcp", url, filename]
+    if os.path.exists(final_filepath):
+        print(f"Pulando arquivo: {final_filepath} (já existe)")
+        return
+
     try:
-        print(f"Baixando: {filename}")
-        subprocess.run(command, check=True, capture_output=True, text=True)
-        print(f"✅ Download concluído: {filename}")
-        return True
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_filepath = os.path.join(temp_dir, filename)
+            command = ["xrdcp", url, temp_filepath]
+
+            print(f"Baixando {filename} para {temp_filepath}")
+            subprocess.run(command, check=True)
+            print(f"✅ Download concluído para o diretório temporário: {temp_filepath}")
+
+            shutil.move(temp_filepath, final_filepath)
+            print(f"✅ Arquivo movido para o destino final: {final_filepath}")
+
     except subprocess.CalledProcessError as e:
-        print(f"❌ Erro ao baixar: {url}: {e.stderr}")
-        return False
+        print(f"❌ Erro ao baixar: {url}: {e}")
+    except Exception as e:
+        print(f"❌ Erro geral ao processar {url}: {e}")
 
-# Criar RDD e executar os downloads em paralelo
-rdd = sc.parallelize(urls, numSlices=10)
+# Executa os downloads sequencialmente
+for url in urls:
+    download_file(url)
 
-download_results = rdd.map(download_file).collect()
-
-all_downloads_successful = all(download_results)
-
-if all_downloads_successful:
-    print("🎉 Todos os downloads foram concluídos com sucesso!")
-
-    # Seu código para processar os arquivos baixados AQUI
-    # Exemplo:
-    for filename in os.listdir(INPUT_DIR):
-       print(f"Arquivo: {filename}")
-
-    # Próximo passo do seu pipeline
-    # ... (seu código para processar os arquivos, gerar outros arquivos, etc.)
-
-else:
-    print("❌ Pelo menos um download falhou. Verifique os logs de erro.")
-    # Lógica para lidar com falhas (ex: tentar novamente, notificar, etc.)
-
-spark.stop()
-
-# Exemplo de código para o "próximo passo" (substitua por sua lógica):
-if all_downloads_successful:
-    # Exemplo: contar o número de linhas em cada arquivo Parquet
-    parquet_files = [os.path.join(INPUT_DIR, f) for f in os.listdir(INPUT_DIR) if f.endswith(".parquet")]
-    for file in parquet_files:
-        try:
-            df = spark.read.parquet(file)
-            row_count = df.count()
-            print(f"Arquivo Parquet: {file}, Linhas: {row_count}")
-        except Exception as e:
-            print(f"Erro ao processar arquivo Parquet: {file}: {e}")
+print("🎉 Todos os downloads foram concluídos!")
