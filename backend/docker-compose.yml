@@ -1,0 +1,143 @@
+version: "3.9"
+
+services:
+  spark-master:
+    image: apache/spark:3.5.4-scala2.12-java17-python3-ubuntu
+    container_name: spark-master
+    user: root
+    environment:
+      - SPARK_MODE=master
+      - SPARK_NO_DAEMONIZE=1
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+    networks:
+      - spark-net
+    volumes:
+      - ./spark/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf
+    restart: always
+    command: ["/opt/spark/sbin/start-master.sh"]
+  spark-worker-1:
+    image: apache/spark:3.5.4-scala2.12-java17-python3-ubuntu
+    container_name: spark-worker-1
+    user: root
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_NO_DAEMONIZE=1
+    depends_on:
+      - spark-master
+    networks:
+      - spark-net
+    restart: always
+    command: ["/opt/spark/sbin/start-worker.sh", "spark://spark-master:7077"]
+
+  spark-worker-2:
+    image: apache/spark:3.5.4-scala2.12-java17-python3-ubuntu
+    container_name: spark-worker-2
+    user: root
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_NO_DAEMONIZE=1
+    depends_on:
+      - spark-master
+    networks:
+      - spark-net
+    restart: always
+    command: ["/opt/spark/sbin/start-worker.sh", "spark://spark-master:7077"]
+
+  spark-worker:
+    image: apache/spark:3.5.4-scala2.12-java17-python3-ubuntu
+    container_name: spark-worker
+    user: root
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_NO_DAEMONIZE=1
+    depends_on:
+      - spark-master
+    networks:
+      - spark-net
+    restart: always
+    command: ["/opt/spark/sbin/start-worker.sh", "spark://spark-master:7077"]
+  spark-worker-3:
+    image: apache/spark:3.5.4-scala2.12-java17-python3-ubuntu
+    container_name: spark-worker-3
+    user: root
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_NO_DAEMONIZE=1
+    depends_on:
+      - spark-master
+    networks:
+      - spark-net
+    restart: always
+    command: ["/opt/spark/sbin/start-worker.sh", "spark://spark-master:7077"]
+  processing:
+      build:
+        context: .
+        dockerfile: docker/Dockerfile
+      container_name: processing
+      user: root
+      volumes:
+        - ./data:/app/data
+        - ./logs:/app/logs
+      networks:
+        - spark-net
+      depends_on:
+        - spark-master
+      entrypoint: ["python3", "/app/scripts/processed_parquet.py"]
+      restart: always
+  convert:
+      build:
+        context: .
+        dockerfile: docker/Dockerfile
+      container_name: converting
+      user: root
+      volumes:
+        - ./data:/app/data
+        - ./logs:/app/logs
+      networks:
+        - spark-net
+      depends_on:
+        - spark-master
+      entrypoint: ["python3", "/app/scripts/converting_parquet.py"]
+      restart: always
+  download:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: downloading
+    user: root
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    networks:
+      - spark-net
+    depends_on:
+      - spark-master
+    entrypoint: ["python3", "/app/scripts/download.py"]
+    restart: always
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: dashboard
+    user: root
+    ports:
+      - "8050:8050"
+    volumes:
+      - ./data:/app/data
+    networks:
+      - spark-net
+    depends_on:
+      - processing
+    entrypoint: ["python3", "/app/scripts/visualize_data.py"]
+    restart: always
+
+networks:
+  spark-net:
+    driver: bridge
